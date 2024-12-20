@@ -1,15 +1,19 @@
-import json
 import openpyxl
 import os
 from openpyxl.styles import Alignment
 
 
-def load_employees(file_path: str) -> dict:
-    """从 JSON 文件中加载员工数据"""
-    if not os.path.exists(file_path):
-        raise FileNotFoundError(f"员工数据文件未找到: {file_path}")
-    with open(file_path, "r", encoding="utf-8") as file:
-        return json.load(file)
+def load_employees_from_txt(file_path):
+    """从 TXT 文件加载员工考勤数据"""
+    employees = {}
+    with open(file_path, 'r', encoding='utf-8') as file:
+        for line in file:
+            line = line.strip()
+            if not line:
+                continue
+            emp_id, attendance = line.split(':', 1)
+            employees[emp_id.strip()] = attendance.strip()
+    return employees
 
 
 def parse_attendance_input(input_str: str, days_in_month: int = 31):
@@ -120,11 +124,11 @@ def fill_attendance(filename: str, employee_data: dict, days_in_month: int = 31)
 
 
 # 加载员工数据文件
-employees_file = "employees.json"
-employees = load_employees(employees_file)
+employee_file = 'employees.txt'
+employees = load_employees_from_txt(employee_file)
 
 # 输出文件名
-output_file = "考勤表.xlsx"
+output_file = "../考勤表.xlsx"
 
 # 填充考勤数据
 fill_attendance(output_file, employees)
