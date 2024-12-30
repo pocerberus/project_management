@@ -13,7 +13,7 @@ def load_employees_from_txt(file_path):
     参数:
         file_path: 文件路径，指向包含员工数据的文本文件
     返回:
-        一个字典，键为员工编号，值为对应的考勤字符串"""
+        一部字典，键为员工编号，值为对应的考勤字符串"""
     employees = {}  # 初始化一个空字典，用于存储员工编号和考勤数据
     if not os.path.exists(file_path):
         # 检查文件是否存在，如果不存在则记录错误信息并返回空字典
@@ -33,13 +33,24 @@ def load_employees_from_txt(file_path):
                 try:
                     emp_id, attendance = line.split(':', 1)
                     # 按冒号分割为员工编号和考勤数据
+                    # line.split(':') 是 Python 字符串的 split 方法，用于根据指定的分隔符（这里是 :）将字符串分割成一个列表。
+                    # 第二个参数 1 是 maxsplit，表示最多分割 1 次，即字符串被拆分为最多 2 个部分。返回值是一个包含最多两个元素的列表
+                    # emp_id, attendance 是解包赋值，将分割后的列表中第一个元素赋值给 emp_id，第二个元素赋值给 attendance
                     emp_id = emp_id.strip()  # 去除编号中的空格
                     attendance = attendance.strip()  # 去除考勤数据中的空格
                     if not emp_id.isalnum() or not attendance:
                         # 检查员工编号是否为字母数字组合，考勤数据是否为空
+                        # emp_id.isalnum() 是一个字符串方法，用于检查字符串是否仅由字母和数字组成（即是否是“字母数字”字符串），且不能为空。
+                        # not emp_id.isalnum() 表示字符串 emp_id 不是由纯字母和数字组成。如果 emp_id 包含空格、特殊字符（例如 @, # 等），或者为空字符串，条件为真
+                        # not attendance检查变量 attendance 是否为假值。假值包括：""（空字符串）、None、False等。not attendance 表示 attendance 是空字符串或其他假值
                         logging.warning(f"无效的员工数据格式: {line}")
                         continue
                     employees[emp_id] = attendance  # 将解析出的员工编号和考勤数据加入字典
+                    # 这行代码的作用是将 emp_id 作为键（Key），将 attendance 作为值（Value），存储到字典 employees 中
+                    # employees：这是一个字典（dict）对象，用于存储键值对。
+                    # emp_id：表示一个员工的唯一标识（如员工编号）。
+                    # attendance：表示该员工的考勤信息（如“Present”或“Absent”）
+                    # 这行代码的作用是将 emp_id 和 attendance 作为键值对加入到字典中。如果 emp_id 已经存在于字典中，则会更新其对应的值为新的 attendance
                 except ValueError:
                     # 捕获分割过程中可能发生的错误并记录警告信息
                     logging.warning(f"无效的员工数据格式: {line}")
@@ -125,7 +136,7 @@ def create_attendance_template(filename: str, days_in_month: int = 31):
     ws = wb.active  # 获取活动工作表
     ws.title = "考勤表"  # 设置表格标题
 
-    ws.cell(row=1, column=1, value="员工编号")  # 填写标题行的第一列
+    ws.cell(row=1, column=1, value="工号")  # 填写标题行的第一列
     for col in range(2, days_in_month + 2):
         ws.cell(row=1, column=col, value=col - 1)  # 按日期填写列标题
     for cell in ws[1]:
@@ -170,7 +181,7 @@ def fill_attendance(filename: str, employee_data: dict, days_in_month: int = 31)
     base_col = days_in_month + 2  # 额外列的起始列号
     for title, offset in extra_columns:
         col_idx = base_col + offset
-        ws.cell(row=1, column=col_idx, value=title)  # 增加新的统计列标题
+        ws.cell(row=1, column=col_idx, value=title)  # 增加新地统计列标题
 
     start_row = 2  # 设置起始行，从第二行开始填写数据
 
