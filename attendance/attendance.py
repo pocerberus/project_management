@@ -8,6 +8,145 @@ import logging  # 导入 logging 模块，用于记录日志信息
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 
+def sort_txt_by_number(input_file, output_file):
+    try:
+        # 检查文件是否存在
+        if not os.path.exists(input_file):
+            print(f"输入文件不存在：{input_file}")
+            return
+
+        with open(input_file, 'r', encoding='utf-8') as file:
+            lines = [line.strip() for line in file if line.strip()]
+            # for line in file
+            # 遍历 file 文件对象的每一行，逐行读取内容。
+            # file 是通过 open 打开的文件对象，支持迭代访问，每次返回一行字符串（包括换行符 \n）。
+
+            # line.strip()
+            # strip() 是字符串的一个方法，用于移除字符串开头和结尾的所有空白字符（如空格、制表符 \t 和换行符 \n）。
+            # 如果一行内容为 " example text \n"，调用 strip() 后会得到 "example text"。
+
+            # if line.strip()
+            # 这是一个条件过滤器，表示只有在 line.strip() 的结果为真时（非空字符串），才会将该行加入列表。
+            # 空行（如只有换行符或空格）经过 strip() 会变成空字符串 ""，在布尔上下文中为 False，因此会被过滤掉。
+
+            # [... for ... if ...]
+            # 这是一个列表生成式，用于构建一个列表。
+            # 它会将符合条件的 line.strip() 的结果依次加入到列表中
+
+        sorted_lines = sorted(lines, key=lambda x: int(x.split(':')[0]))
+        # 1.sorted(lines)
+        # sorted是Python的内置函数，用于对可迭代对象进行排序。
+        # 它会返回一个新的排序后的列表，不会修改原始列表lines。
+        # 语法：sorted(iterable, key=None, reverse=False)
+        #     iterable：要排序的对象，这里是lines列表。
+        #     key：指定排序的规则（一个函数），这里通过lambda 表达式定义。
+        #     reverse：默认False，表示升序排序。设置为True则降序
+        #
+        # 2.key = lambda x: int(x.split(':')[0])
+        # key是一个函数，指定排序的依据。
+        # 这里使用lambda x 定义了一个匿名函数，x是列表中每个元素的值。
+        #
+        # 3.拆解lambda x: int(x.split(':')[0])
+        #     1 x.split(':')
+        #
+        #         split(':')是字符串的一个方法，用于将字符串按冒号: 分割成多个部分。
+        #         返回值是一个列表，其中每部分是分割后的子字符串。
+        #         示例："1:苹果".split(':') → ["1", "苹果"]
+        #     2 x.split(':')[0]
+        #         取分割后列表的第一个元素，即冒号前的部分。
+        #         示例："1:苹果".split(':')[0] → "1"
+        #     3 int(x.split(':')[0])
+        #         将冒号前的部分从字符串转换为整数，用作排序的依据。
+        #         示例：int("1") → 1
+        #     4 lambda x 是 Python 中用于定义 匿名函数 的语法。它的功能类似于 def 关键字创建的普通函数，但更简洁。
+        #         lambda 参数: 表达式
+        #         lambda：关键字，用于声明一个匿名函数。
+        #         参数：函数的输入，可以是一个或多个，多个参数用逗号分隔。
+        #         表达式：函数的返回值，必须是一个单一表达式，不能包含复杂语句。
+        #         匿名函数的特点
+        #         没有名称：lambda 定义的函数是匿名的，常用在需要临时函数的场合。
+        #         内联简洁：适合用在较简单的情况下，定义和使用往往写在同一行。
+        #         自动返回：lambda 的表达式部分会自动作为返回值，无需使用 return。
+
+        with open(output_file, 'w', encoding='utf-8') as file:
+            file.write('\n'.join(sorted_lines))
+        # 代码解析
+        # 1.with open(output_file, 'w', encoding='utf-8') as file
+        #     open(output_file, 'w', encoding='utf-8')
+        #     打开（或创建）一个文件进行写操作。
+        #     参数说明：
+        #         output_file：指定的文件路径。
+        #         'w'：表示写模式，会覆盖文件内容。如果文件不存在，会自动创建一个新文件。
+        #         encoding = 'utf-8'：指定使用UTF - 8编码写入内容，保证对非ASCII字符（如中文）兼容。
+        #     with 关键字
+        #     with 是上下文管理器，负责在操作完成后自动关闭文件，无需手动调用 file.close()，即使在程序异常时也会安全关闭文件。
+        # 2.file.write('\n'.join(sorted_lines))
+        #     '\n'.join(sorted_lines)
+        #         将sorted_lines列表中的元素拼接成一个字符串，每个元素之间用换行符 \n分隔。
+        #         示例：
+        #         sorted_lines = ["1:香蕉", "2:橙子", "3:苹果"]
+        #         result = '\n'.join(sorted_lines)
+        #         print(result)
+        #         # 输出：
+        #         # 1:香蕉
+        #         # 2:橙子
+        #         # 3:苹果
+        #     file.write(...)
+        #         将拼接后的字符串写入文件。
+        #         如果sorted_lines是上例中的内容，文件的最终内容会是：
+        #         1: 香蕉
+        #         2: 橙子
+        #         3: 苹果
+        # 优点
+        # 自动关闭文件：使用with 块，无论文件操作是否成功，都会自动释放资源。
+        # 简洁高效：直接将排序后的列表转换为字符串并一次性写入文件。
+        # 跨平台支持：指定编码为UTF - 8，兼容各种操作系统和语言环境。
+        # 注意事项
+        # 覆盖风险：如果output_file已存在，其内容会被覆盖。如果需要追加内容，可以将'w'替换为'a'（追加模式）。
+        # 编码问题：如果内容中包含特殊字符，确保文件编码和操作系统的默认编码兼容。UTF-8是推荐选择。
+        # 数据格式一致性：确保sorted_lines的内容已经按照所需的格式排序并去除了无效数据（如空行）。
+
+        print(f"文件已成功排序并保存到 {output_file}")
+    except Exception as e:
+        print(f"发生错误：{e}")
+
+
+# 自动获取当前脚本所在目录，并拼接文件路径
+current_dir = os.path.dirname(os.path.abspath(__file__))
+input_file = os.path.join(current_dir, 'input.txt')
+output_file = os.path.join(current_dir, 'employees.txt')
+
+sort_txt_by_number(input_file, output_file)
+
+
+# 逐行解析
+# 1. current_dir = os.path.dirname(os.path.abspath(__file__))
+# os.path.abspath(__file__)：
+# 获取当前脚本文件的绝对路径（包含文件名）。
+# 例如，假设脚本位于 /home/user/project/script.py，则 os.path.abspath(__file__) 的结果是 /home/user/project/script.py。
+# os.path.dirname()：
+# 获取文件所在的目录路径。
+# 结合上例，os.path.dirname("/home/user/project/script.py") 的结果是 /home/user/project。
+# current_dir：
+# 最终保存了当前脚本所在的目录路径。
+
+# 2. input_file = os.path.join(current_dir, 'input.txt')
+# os.path.join()：
+# 将目录路径 current_dir 与文件名 input.txt 拼接成一个完整的路径。
+# 例如，如果 current_dir 是 /home/user/project，则结果是 /home/user/project/input.txt。
+# input_file：
+# 保存了待处理文件 input.txt 的完整路径。
+
+# 3. output_file = os.path.join(current_dir, 'employees.txt')
+# 功能与上面类似，只不过目标文件是 sorted_output.txt。
+# output_file 保存了排序后输出文件的完整路径。
+
+# 4. sort_txt_by_number(input_file, output_file)
+# 调用定义好的函数 sort_txt_by_number，并传入两个参数：
+# input_file：表示要读取并排序的输入文件路径。
+# output_file：表示排序后结果要保存的输出文件路径。
+
+
 def load_employees_from_txt(file_path):
     """从 TXT 文件加载员工考勤数据
     参数:
