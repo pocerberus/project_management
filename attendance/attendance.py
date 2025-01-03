@@ -1,8 +1,13 @@
 import openpyxl  # 导入 openpyxl 模块，用于处理 Excel 文件
 import os  # 导入 os 模块，用于操作文件和目录
-from openpyxl.styles import Alignment  # 从 openpyxl.styles 导入 Alignment 类，用于设置单元格对齐方式
+from openpyxl.styles import Alignment, Font  # 从 openpyxl.styles 导入 Alignment,Font 类，用于设置单元格对齐方式及字体
 import calendar  # 导入 calendar 模块，用于处理日期和时间
 import logging  # 导入 logging 模块，用于记录日志信息
+import pymysql
+import json
+from openpyxl.utils import get_column_letter
+import mysql.connector
+
 
 # 配置日志记录，设置日志级别为 INFO，格式为时间 - 日志级别 - 消息内容
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -17,6 +22,7 @@ def sort_txt_by_number(input_file, output_file):
 
         with open(input_file, 'r', encoding='utf-8') as file:
             lines = [line.strip() for line in file if line.strip()]
+            '''
             # for line in file
             # 遍历 file 文件对象的每一行，逐行读取内容。
             # file 是通过 open 打开的文件对象，支持迭代访问，每次返回一行字符串（包括换行符 \n）。
@@ -32,8 +38,10 @@ def sort_txt_by_number(input_file, output_file):
             # [... for ... if ...]
             # 这是一个列表生成式，用于构建一个列表。
             # 它会将符合条件的 line.strip() 的结果依次加入到列表中
+            '''
 
         sorted_lines = sorted(lines, key=lambda x: int(x.split(':')[0]))
+        '''
         # 1.sorted(lines)
         # sorted是Python的内置函数，用于对可迭代对象进行排序。
         # 它会返回一个新的排序后的列表，不会修改原始列表lines。
@@ -67,9 +75,11 @@ def sort_txt_by_number(input_file, output_file):
         #         没有名称：lambda 定义的函数是匿名的，常用在需要临时函数的场合。
         #         内联简洁：适合用在较简单的情况下，定义和使用往往写在同一行。
         #         自动返回：lambda 的表达式部分会自动作为返回值，无需使用 return。
+        '''
 
         with open(output_file, 'w', encoding='utf-8') as file:
             file.write('\n'.join(sorted_lines))
+        '''
         # 代码解析
         # 1.with open(output_file, 'w', encoding='utf-8') as file
         #     open(output_file, 'w', encoding='utf-8')
@@ -105,46 +115,159 @@ def sort_txt_by_number(input_file, output_file):
         # 覆盖风险：如果output_file已存在，其内容会被覆盖。如果需要追加内容，可以将'w'替换为'a'（追加模式）。
         # 编码问题：如果内容中包含特殊字符，确保文件编码和操作系统的默认编码兼容。UTF-8是推荐选择。
         # 数据格式一致性：确保sorted_lines的内容已经按照所需的格式排序并去除了无效数据（如空行）。
-
+        '''
         print(f"文件已成功排序并保存到 {output_file}")
     except Exception as e:
         print(f"发生错误：{e}")
-
 
 # 自动获取当前脚本所在目录，并拼接文件路径
 current_dir = os.path.dirname(os.path.abspath(__file__))
 input_file = os.path.join(current_dir, 'input.txt')
 output_file = os.path.join(current_dir, 'employees.txt')
-
 sort_txt_by_number(input_file, output_file)
+'''
+    # 逐行解析
+    # 1. current_dir = os.path.dirname(os.path.abspath(__file__))
+    # os.path.abspath(__file__)：
+    # 获取当前脚本文件的绝对路径（包含文件名）。
+    # 例如，假设脚本位于 /home/user/project/script.py，则 os.path.abspath(__file__) 的结果是 /home/user/project/script.py。
+    # os.path.dirname()：
+    # 获取文件所在的目录路径。
+    # 结合上例，os.path.dirname("/home/user/project/script.py") 的结果是 /home/user/project。
+    # current_dir：
+    # 最终保存了当前脚本所在的目录路径。
+
+    # 2. input_file = os.path.join(current_dir, 'input.txt')
+    # os.path.join()：
+    # 将目录路径 current_dir 与文件名 input.txt 拼接成一个完整的路径。
+    # 例如，如果 current_dir 是 /home/user/project，则结果是 /home/user/project/input.txt。
+    # input_file：
+    # 保存了待处理文件 input.txt 的完整路径。
+
+    # 3. output_file = os.path.join(current_dir, 'employees.txt')
+    # 功能与上面类似，只不过目标文件是 sorted_output.txt。
+    # output_file 保存了排序后输出文件的完整路径。
+
+    # 4. sort_txt_by_number(input_file, output_file)
+    # 调用定义好的函数 sort_txt_by_number，并传入两个参数：
+    # input_file：表示要读取并排序的输入文件路径。
+    # output_file：表示排序后结果要保存的输出文件路径。
+'''
 
 
-# 逐行解析
-# 1. current_dir = os.path.dirname(os.path.abspath(__file__))
-# os.path.abspath(__file__)：
-# 获取当前脚本文件的绝对路径（包含文件名）。
-# 例如，假设脚本位于 /home/user/project/script.py，则 os.path.abspath(__file__) 的结果是 /home/user/project/script.py。
-# os.path.dirname()：
-# 获取文件所在的目录路径。
-# 结合上例，os.path.dirname("/home/user/project/script.py") 的结果是 /home/user/project。
-# current_dir：
-# 最终保存了当前脚本所在的目录路径。
+def load_db_config(config_file):
+    """从 JSON 配置文件加载 MySQL 数据库连接信息"""
+    try:
+        with open(config_file, 'r', encoding='utf-8') as file:
+            config = json.load(file)
+            # 这里json.load(file): 读取文件内容并解析为 Python 字典,这是这个函数的功能,想要使用这部字典后续需要定义变量让这个函数赋值
+        return config
+    except Exception as e:
+        print(f"读取配置文件时出错：{e}")
+        return None
 
-# 2. input_file = os.path.join(current_dir, 'input.txt')
-# os.path.join()：
-# 将目录路径 current_dir 与文件名 input.txt 拼接成一个完整的路径。
-# 例如，如果 current_dir 是 /home/user/project，则结果是 /home/user/project/input.txt。
-# input_file：
-# 保存了待处理文件 input.txt 的完整路径。
 
-# 3. output_file = os.path.join(current_dir, 'employees.txt')
-# 功能与上面类似，只不过目标文件是 sorted_output.txt。
-# output_file 保存了排序后输出文件的完整路径。
+def get_employee_info_from_mysql(config, emp_ids):
+    """根据员工工号列表从 MySQL 获取员工信息"""
+    if not config:
+        print("数据库配置无效，无法连接数据库。")
+        return {}
 
-# 4. sort_txt_by_number(input_file, output_file)
-# 调用定义好的函数 sort_txt_by_number，并传入两个参数：
-# input_file：表示要读取并排序的输入文件路径。
-# output_file：表示排序后结果要保存的输出文件路径。
+    if not emp_ids:
+        print("员工ID列表为空，无法执行查询。")
+        return {}
+
+    try:
+        # 连接数据库
+        conn = mysql.connector.connect(
+            host=config['host'],
+            user=config['user'],
+            password=config['password'],
+            database=config['database']
+        )
+
+        # 自动管理游标和连接
+        with conn.cursor(dictionary=True) as cursor:
+            # 创建游标对象 cursor
+            # 参数 dictionary=True 指定查询结果以字典形式返回，而非默认的元组形式
+            # 使用 with 语句确保游标在代码块结束后自动关闭，避免资源泄露
+
+            # 构建参数化查询
+            placeholders = ", ".join(["%s"] * len(emp_ids))
+            # 根据 emp_ids 的长度，动态生成 SQL 占位符字符串。
+            # 假如 emp_ids = [101, 102]，生成的字符串为 "%s, %s"
+            # 使用占位符 %s 实现参数化查询，避免直接拼接字符串，防止 SQL 注入风险
+
+            query = f"SELECT emp_id, job_type, name, unit_price FROM employees WHERE emp_id IN ({placeholders})"
+            # 构建查询语句，将占位符插入 WHERE emp_id IN (...) 中,保证查询语句安全且易于扩展保证查询语句安全且易于扩展
+
+            # 执行查询
+            cursor.execute(query, emp_ids)
+            # query, emp_ids都为参数
+            # 执行 SQL 查询，emp_ids 中的值会替换占位符 %s,通过参数化查询方式，确保数据被安全转义，防止 SQL 注入
+
+            # 获取查询结果
+            employee_data = cursor.fetchall()
+            # 使用 fetchall() 获取查询结果，返回一个包含所有记录的列表
+
+        # 关闭数据库连接
+        conn.close()
+
+        # 将结果转换为字典形式
+        employee_info = {
+            emp['emp_id']: {'job_type': emp['job_type'], 'name': emp['name'], 'unit_price': emp['unit_price']}
+            for emp in employee_data
+        }
+        # emp 是字典推导式中的临时变量，不需要在上下文中单独定义。
+        # 它的值来自 for emp in employee_data，每次迭代时会被动态赋值为 employee_data 的当前元素。
+        # 它的作用域仅限于字典推导式或循环语句中，执行完成后就会释放
+        return employee_info
+
+    except mysql.connector.Error as err:
+        print(f"数据库连接错误: {err}")
+        return {}
+
+
+def load_employees_id_from_txt(file_path):
+    """从 TXT 文件加载员工工号"""
+    employees_id = []
+    if not os.path.exists(file_path):
+        print(f"文件 {file_path} 不存在，请检查路径！")
+        return employees_id
+    with open(file_path, 'r', encoding='utf-8') as file:
+        lines = [line.strip() for line in file if line.strip()]
+        # 列表推导式的基本语法：[expression for item in iterable if condition]
+        # expression: 表示要添加到新列表中的元素。它可以是对 item 的操作或某种计算。
+        # for item in iterable: 遍历可迭代对象（iterable），在每次循环中，item 是当前迭代到的元素。
+        # if condition: 可选部分，用于筛选元素。如果 condition 为 True，则当前元素会被添加到列表中；如果为 False，则跳过该元素
+        for line in lines:
+            emp_id = line.split(':')[0]  # 假设工号在 ':' 前
+            employees_id.append(emp_id)  # .append(emp_id)表示将emp_id追加到employees_id字典中
+    return employees_id
+
+
+def main():
+    # 从 JSON 配置文件加载数据库连接信息
+    db_config_file = 'db_config.json'  # 假设配置文件路径
+    db_config = load_db_config(db_config_file)
+
+    if not db_config:
+        return
+
+    # 从 TXT 文件加载员工工号
+    file_path = 'employees.txt'  # 假设 TXT 文件路径
+    emp_ids = load_employees_id_from_txt(file_path)
+
+    if not emp_ids:
+        print("未找到任何员工工号")
+        return
+
+    # 根据工号从 MySQL 获取员工信息
+    employee_info = get_employee_info_from_mysql(db_config, emp_ids)
+
+    # 输出员工信息
+    for emp_id, info in employee_info.items():
+        print(f"工号: {emp_id}, 工种: {info['job_type']}, 姓名: {info['name']}, 单价: {info['unit_price']}")
 
 
 def load_employees_from_txt(file_path):
