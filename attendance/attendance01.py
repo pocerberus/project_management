@@ -1,3 +1,4 @@
+import datetime
 import openpyxl  # 导入 openpyxl 模块，用于处理 Excel 文件
 import os  # 导入 os 模块，用于操作文件和目录
 from openpyxl.styles import Alignment, Font  # 从 openpyxl.styles 导入 Alignment,Font 类，用于设置单元格对齐方式及字体
@@ -374,10 +375,6 @@ def main():
     # 根据工号从 MySQL 获取员工信息
     employee_info = get_employee_info_from_mysql(db_config, emp_ids)
 
-    # 输出员工信息
-    for emp_id, info in employee_info.items():
-        print(f"工号: {emp_id}, 工种: {info['job_type']}, 姓名: {info['name']}, 单价: {info['unit_price']}")
-
 
 def create_attendance_template(filename: str, days_in_month: int = 31):
     """创建考勤模板
@@ -386,34 +383,61 @@ def create_attendance_template(filename: str, days_in_month: int = 31):
         days_in_month: 当前月份的天数"""
     wb = openpyxl.Workbook()  # 创建一个新的工作簿
     ws = wb.active  # 获取活动工作表
-    ws.title = "考勤表"  # 设置表格标题
+    ws.title = "考勤表"  # 设置工作表表格标题
 
-    ws.cell(row=1, column=1, value="工号")  # 填写标题行的第一列
-    for col in range(2, days_in_month + 2):
-        ws.cell(row=1, column=col, value=col - 1)  # 按日期填写列标题
-    for cell in ws[1]:
-        cell.alignment = Alignment(horizontal="center", vertical="center")  # 首行标题进行居中处理
+    for col in ws.iter_cols(min_col=1, max_col=40):  # A:AN 对应第 1 列到第 40 列
+        for cell in col:
+            cell.alignment = Alignment(horizontal="center", vertical="center")
 
-    set_column_width(ws, width=3.6, exclude_first_column=True)  # 设置列宽
+    ws.merge_cells("A1:AN1")  # 合并第1行的 A:AN 单元格
+    header_cell1 = ws.cell(row=1, column=1, value="考勤表")  # 设置合并单元格的内容为 "考勤表"
+    header_cell1.font = Font(size=28, bold=True)  # 设置字体为 28 号
+    ws.row_dimensions[1].height = 40  # 设置行高为 40
+
+    ws.merge_cells("A2:AK2")  # 合并第2行的 A:AK 单元格
+    header_cell2 = ws.cell(row=2, column=1, value="项目名称：威尔斯 ")  # 设置合并单元格的内容为 "项目名称：威尔斯 "
+    header_cell2.alignment = Alignment(horizontal="left", vertical="center")  # 设置居左对齐
+
+    ws.merge_cells("AL2:AN2")  # 合并第2行的 AL:AN 单元格
+    current_year = datetime.now().year
+    current_month = datetime.now().month
+    header_text = f"{current_year}年{current_month}月"  # 动态获取当前年月
+    ws.cell(row=2, column=38, value=header_text)
+
+    headers = ['序号', '工号', '       日期\n姓名']
+    headers.extend([f"日期{day}" for day in range(1, days_in_month + 1)])  # 日期列
+    headers.extend(["出勤\n天数", "加班\n计时", "合计\n工数", "人工\n单价", "合计\n工资", "签名"])  # 新增列
+    for col, header in enumerate(headers, start=1):
+        # enumerate 是 Python 中的一个内置函数，用于将一个可迭代对象（如列表、元组等）转换为一个枚举对象，返回一个由索引和元素组成的元组。
+        # headers 是一个包含列标题的列表。
+        # enumerate(headers, start=1) 表示从 1 开始为 headers 列表中的每个元素提供一个索引。col 表示列索引，header 表示 headers 列表中的当前元素（即列标题）
+        ws.cell(row=3, column=col, value=header)
+
     wb.save(filename)  # 保存工作簿
     logging.info(f"考勤模板已生成: {filename}")  # 记录模板生成的信息
 
 
-def set_column_width(ws, width=3.6, exclude_first_column=False):
-    """设置列宽，并将内容居中
-    参数:
-        ws: 工作表对象
-        width: 列宽的数值
-        exclude_first_column: 是否排除第一列"""
-    for col_idx, col_cells in enumerate(ws.columns, start=1):
-        if exclude_first_column and col_idx == 1:
-            continue
-        col_letter = col_cells[0].column_letter  # 获取列字母
-        ws.column_dimensions[col_letter].width = width  # 设置列宽
+def set_column_widths(ws):  # 设置列宽
+    # 设置第1列(A), 第2列(B), 第3列(C)的列宽
+    ws.column_dimensions["A"].width = 3  # 第1列(A)宽度为3
+    ws.column_dimensions["B"].width = 7  # 第2列(B)宽度为7
+    ws.column_dimensions["C"].width = 13  # 第3列(C)宽度为13
 
-    for row in ws.iter_rows():
-        for cell in row:
-            cell.alignment = Alignment(horizontal="center", vertical="center")  # 居中对齐
+    # 设置第4列到第34列(D到AH)的列宽为3.6
+    for col in range(4, 35):
+        col_letter = get_column_letter(col)  # 自动处理列号到字母的转换
+        ws.column_dimensions[col_letter].width = 3.6
+
+    # 设置第35列到第38列(AI到AL)的列宽为6.8
+    for col in range(35, 39):
+        col_letter = get_column_letter(col)  # 自动处理列号到字母的转换
+        ws.column_dimensions[col_letter].width = 6.8
+
+    # 设置第39列(AM)的列宽为10.5
+    ws.column_dimensions["AM"].width = 10.5
+
+    # 设置第40列(AN)的列宽为22.5
+    ws.column_dimensions["AN"].width = 22.5
 
 
 def fill_attendance(filename: str, employee_data: dict, days_in_month: int = 31):
