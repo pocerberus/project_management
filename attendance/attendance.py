@@ -3,11 +3,9 @@ import os  # 导入 os 模块，用于操作文件和目录
 from openpyxl.styles import Alignment, Font  # 从 openpyxl.styles 导入 Alignment,Font 类，用于设置单元格对齐方式及字体
 import calendar  # 导入 calendar 模块，用于处理日期和时间
 import logging  # 导入 logging 模块，用于记录日志信息
-import pymysql
 import json
 from openpyxl.utils import get_column_letter
 import mysql.connector
-
 
 # 配置日志记录，设置日志级别为 INFO，格式为时间 - 日志级别 - 消息内容
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -120,6 +118,7 @@ def sort_txt_by_number(input_file, output_file):
     except Exception as e:
         print(f"发生错误：{e}")
 
+
 # 自动获取当前脚本所在目录，并拼接文件路径
 current_dir = os.path.dirname(os.path.abspath(__file__))
 input_file = os.path.join(current_dir, 'input.txt')
@@ -153,121 +152,6 @@ sort_txt_by_number(input_file, output_file)
     # input_file：表示要读取并排序的输入文件路径。
     # output_file：表示排序后结果要保存的输出文件路径。
 '''
-
-
-def load_db_config(config_file):
-    """从 JSON 配置文件加载 MySQL 数据库连接信息"""
-    try:
-        with open(config_file, 'r', encoding='utf-8') as file:
-            config = json.load(file)
-            # 这里json.load(file): 读取文件内容并解析为 Python 字典,这是这个函数的功能,想要使用这部字典后续需要定义变量让这个函数赋值
-        return config
-    except Exception as e:
-        print(f"读取配置文件时出错：{e}")
-        return None
-
-
-def get_employee_info_from_mysql(config, emp_ids):
-    """根据员工工号列表从 MySQL 获取员工信息"""
-    if not config:
-        print("数据库配置无效，无法连接数据库。")
-        return {}
-
-    if not emp_ids:
-        print("员工ID列表为空，无法执行查询。")
-        return {}
-
-    try:
-        # 连接数据库
-        conn = mysql.connector.connect(
-            host=config['host'],
-            user=config['user'],
-            password=config['password'],
-            database=config['database']
-        )
-
-        # 自动管理游标和连接
-        with conn.cursor(dictionary=True) as cursor:
-            # 创建游标对象 cursor
-            # 参数 dictionary=True 指定查询结果以字典形式返回，而非默认的元组形式
-            # 使用 with 语句确保游标在代码块结束后自动关闭，避免资源泄露
-
-            # 构建参数化查询
-            placeholders = ", ".join(["%s"] * len(emp_ids))
-            # 根据 emp_ids 的长度，动态生成 SQL 占位符字符串。
-            # 假如 emp_ids = [101, 102]，生成的字符串为 "%s, %s"
-            # 使用占位符 %s 实现参数化查询，避免直接拼接字符串，防止 SQL 注入风险
-
-            query = f"SELECT emp_id, job_type, name, unit_price FROM employees WHERE emp_id IN ({placeholders})"
-            # 构建查询语句，将占位符插入 WHERE emp_id IN (...) 中,保证查询语句安全且易于扩展保证查询语句安全且易于扩展
-
-            # 执行查询
-            cursor.execute(query, emp_ids)
-            # query, emp_ids都为参数
-            # 执行 SQL 查询，emp_ids 中的值会替换占位符 %s,通过参数化查询方式，确保数据被安全转义，防止 SQL 注入
-
-            # 获取查询结果
-            employee_data = cursor.fetchall()
-            # 使用 fetchall() 获取查询结果，返回一个包含所有记录的列表
-
-        # 关闭数据库连接
-        conn.close()
-
-        # 将结果转换为字典形式
-        employee_info = {
-            emp['emp_id']: {'job_type': emp['job_type'], 'name': emp['name'], 'unit_price': emp['unit_price']}
-            for emp in employee_data
-        }
-        # emp 是字典推导式中的临时变量，不需要在上下文中单独定义。
-        # 它的值来自 for emp in employee_data，每次迭代时会被动态赋值为 employee_data 的当前元素。
-        # 它的作用域仅限于字典推导式或循环语句中，执行完成后就会释放
-        return employee_info
-
-    except mysql.connector.Error as err:
-        print(f"数据库连接错误: {err}")
-        return {}
-
-
-def load_employees_id_from_txt(file_path):
-    """从 TXT 文件加载员工工号"""
-    employees_id = []
-    if not os.path.exists(file_path):
-        print(f"文件 {file_path} 不存在，请检查路径！")
-        return employees_id
-    with open(file_path, 'r', encoding='utf-8') as file:
-        lines = [line.strip() for line in file if line.strip()]
-        # 列表推导式的基本语法：[expression for item in iterable if condition]
-        # expression: 表示要添加到新列表中的元素。它可以是对 item 的操作或某种计算。
-        # for item in iterable: 遍历可迭代对象（iterable），在每次循环中，item 是当前迭代到的元素。
-        # if condition: 可选部分，用于筛选元素。如果 condition 为 True，则当前元素会被添加到列表中；如果为 False，则跳过该元素
-        for line in lines:
-            emp_id = line.split(':')[0]  # 假设工号在 ':' 前
-            employees_id.append(emp_id)  # .append(emp_id)表示将emp_id追加到employees_id字典中
-    return employees_id
-
-
-def main():
-    # 从 JSON 配置文件加载数据库连接信息
-    db_config_file = 'db_config.json'  # 假设配置文件路径
-    db_config = load_db_config(db_config_file)
-
-    if not db_config:
-        return
-
-    # 从 TXT 文件加载员工工号
-    file_path = 'employees.txt'  # 假设 TXT 文件路径
-    emp_ids = load_employees_id_from_txt(file_path)
-
-    if not emp_ids:
-        print("未找到任何员工工号")
-        return
-
-    # 根据工号从 MySQL 获取员工信息
-    employee_info = get_employee_info_from_mysql(db_config, emp_ids)
-
-    # 输出员工信息
-    for emp_id, info in employee_info.items():
-        print(f"工号: {emp_id}, 工种: {info['job_type']}, 姓名: {info['name']}, 单价: {info['unit_price']}")
 
 
 def load_employees_from_txt(file_path):
@@ -319,74 +203,203 @@ def load_employees_from_txt(file_path):
     except Exception as e:
         # 捕获文件读取过程中发生的任何异常并记录错误信息
         logging.error(f"加载员工数据时发生错误: {e}")
-    return employees  # 返回包含员工数据的字典
+
+    return employees  # 返回包含员工数据的字典 employees[emp_id] = attendance
 
 
-def parse_attendance_input(input_str: str, days_in_month: int = 31):
-    """解析快速输入字符串
+def parse_attendance_input(input_str: str, emp_ids: list, days_in_month: int = 31):
+    """解析快速输入字符串，返回按员工编号组织的考勤数据字典
     参数:
         input_str: 表示考勤信息的字符串，例如 "1, 2.1, 3.2+2, 4-6"
+        employee_ids: 员工编号的列表，用于将考勤信息按员工编号组织
         days_in_month: 当前月份的天数，默认为 31 天
     返回:
-        一个包含早班、晚班和加班信息的嵌套字典"""
-    attendance = {"morning": {}, "afternoon": {}, "overtime": {}}  # 初始化嵌套字典
+        一个按员工编号组织的嵌套字典, 格式如下：
+        {
+            emp_id: {
+                "morning": {1: "✓", 2: "✗", 3: "✓", ...},
+                "afternoon": {1: "✓", 2: "✓", 3: "✗", ...},
+                "overtime": {1: 2.5, 2: "", 3: 1.0, ...}
+            },
+            ...
+        }
+    """
 
-    def mark_attendance(day: int, period: int = None, overtime: float = None):
-        """标记考勤数据
+    # 创建一个空的字典，用于存储每个员工的考勤数据
+    attendance_data = {emp_id: {"morning": {}, "afternoon": {}, "overtime": {}} for emp_id in emp_ids}
+
+    def mark_attendance(emp_id, day: int, period: int = None, overtime: float = None):
+        """标记某个员工的考勤数据
         参数:
+            emp_id: 员工编号
             day: 天数，对应日期
             period: 考勤时间段，1 表示早班，2 表示晚班，默认标记全天
-            overtime: 加班时长，默认为 None"""
+            overtime: 加班时长，默认为 None
+        """
+        if emp_id not in attendance_data:
+            return  # 如果员工编号不在考勤数据中，则跳过
+
         if 1 <= day <= days_in_month:
             if period == 1:
-                attendance["morning"][day] = "\u2713"  # 早班出勤标记
+                attendance_data[emp_id]["morning"][day] = "\u2713"  # 早班出勤标记
             elif period == 2:
-                attendance["afternoon"][day] = "\u2713"  # 晚班出勤标记
+                attendance_data[emp_id]["afternoon"][day] = "\u2713"  # 晚班出勤标记
             else:
-                attendance["morning"][day] = "\u2713"
-                attendance["afternoon"][day] = "\u2713"  # 全天出勤
+                attendance_data[emp_id]["morning"][day] = "\u2713"
+                attendance_data[emp_id]["afternoon"][day] = "\u2713"  # 全天出勤
 
             if overtime is not None:
-                attendance["overtime"][day] = overtime  # 记录加班时间
+                attendance_data[emp_id]["overtime"][day] = overtime  # 记录加班时间
 
+    # 解析输入字符串，并标记考勤
     for part in input_str.split(","):
         part = part.strip()  # 去除每部分的首尾空格
         if not part:
             continue  # 跳过空部分
         try:
             if "+" in part and "." in part:
-                # 如果部分同时包含 "+" 和 "."，表示 "日.时段+加班"
+                # "日.时段+加班"格式
                 date_period, overtime = part.split("+")
                 day, period = map(int, date_period.split("."))
-                mark_attendance(day, period, float(overtime))
+                overtime = float(overtime)
+                for emp_id in emp_ids:
+                    mark_attendance(emp_id, day, period, overtime)
             elif "-" in part:
-                # 如果部分包含 "-"，表示 "起始日-结束日"
+                # "起始日-结束日"格式
                 start, end = map(int, part.split("-"))
                 for day in range(start, end + 1):
-                    mark_attendance(day)
+                    for emp_id in emp_ids:
+                        mark_attendance(emp_id, day)
             elif "." in part:
-                # 如果部分包含 "."，表示 "日.时段"
+                # "日.时段"格式
                 day, period = map(int, part.split("."))
-                mark_attendance(day, period)
+                for emp_id in emp_ids:
+                    mark_attendance(emp_id, day, period)
             elif "+" in part:
-                # 如果部分包含 "+"，表示 "日+加班"
+                # "日+加班"格式
                 day, overtime = part.split("+")
-                mark_attendance(int(day), None, float(overtime))
+                overtime = float(overtime)
+                for emp_id in emp_ids:
+                    mark_attendance(emp_id, int(day), None, overtime)
             else:
-                # 否则部分表示单独的日期
-                mark_attendance(int(part))
+                # 单独日期
+                for emp_id in emp_ids:
+                    mark_attendance(emp_id, int(part))
         except ValueError:
             logging.warning(
                 f"无效的格式: {part}。预期格式包括 'day', 'day.period', 'day+overtime', 'start-end' 等。")
             continue
 
     # 填充默认值，将未标记的日期标记为未出勤
-    for day in range(1, days_in_month + 1):
-        attendance["morning"].setdefault(day, "\u2717")
-        attendance["afternoon"].setdefault(day, "\u2717")
-        attendance["overtime"].setdefault(day, "")
+    for emp_id in emp_ids:
+        for day in range(1, days_in_month + 1):
+            attendance_data[emp_id]["morning"].setdefault(day, "\u2717")
+            attendance_data[emp_id]["afternoon"].setdefault(day, "\u2717")
+            attendance_data[emp_id]["overtime"].setdefault(day, "")
 
-    return attendance  # 返回解析后的考勤数据字典
+    return attendance_data  # 返回按员工编号组织的考勤数据字典
+
+
+def load_db_config(config_file):
+    if not os.path.exists(config_file):
+        print(f"配置文件 {config_file} 不存在！")
+        return None
+    try:
+        with open(config_file, 'r', encoding='utf-8') as file:
+            config = json.load(file)
+        if isinstance(config, dict):
+            return config
+        else:
+            print(f"配置文件格式错误，应该是一个字典：{config}")
+            return None
+    except Exception as e:
+        print(f"读取配置文件时出错：{e}")
+        return None
+
+
+def get_employee_info_from_mysql(config, emp_ids):
+    """根据员工工号列表从 MySQL 获取员工信息，得到一部键为员工工号的字典"""
+    if not config:
+        print("数据库配置无效，无法连接数据库。")
+        return {}
+
+    if not emp_ids:
+        print("员工ID列表为空，无法执行查询。")
+        return {}
+
+    try:
+        # 连接数据库
+        conn = mysql.connector.connect(
+            host=config['host'],
+            user=config['user'],
+            password=config['password'],
+            database=config['database']
+        )
+
+        # 自动管理游标和连接
+        with conn.cursor(dictionary=True) as cursor:
+            # 创建游标对象 cursor
+            # 参数 dictionary=True 指定查询结果以字典形式返回，而非默认的元组形式
+            # 使用 with 语句确保游标在代码块结束后自动关闭，避免资源泄露
+
+            # 构建参数化查询
+            placeholders = ", ".join(["%s"] * len(emp_ids))
+            # 根据 emp_ids 的长度，动态生成 SQL 占位符字符串。
+            # 假如 emp_ids = [101, 102]，生成的字符串为 "%s, %s"
+            # 使用占位符 %s 实现参数化查询，避免直接拼接字符串，防止 SQL 注入风险
+
+            query = f"SELECT emp_id, job_type, name, unit_price FROM employees WHERE emp_id IN ({placeholders})"
+            # 构建查询语句，将占位符插入 WHERE emp_id IN (...) 中,保证查询语句安全且易于扩展保证查询语句安全且易于扩展
+
+            # 执行查询
+            cursor.execute(query, emp_ids)
+            # query, emp_ids都为参数
+            # 执行 SQL 查询，emp_ids 中的值会替换占位符 %s,通过参数化查询方式，确保数据被安全转义，防止 SQL 注入
+
+            # 获取查询结果
+            employee_data = cursor.fetchall()
+            # 使用 fetchall() 获取查询结果，返回一个包含所有记录的列表
+
+        # 关闭数据库连接
+        conn.close()
+
+        # 将结果转换为字典形式
+        employee_info = {
+            emp['emp_id']: {'job_type': emp['job_type'], 'name': emp['name'], 'unit_price': emp['unit_price']}
+            for emp in employee_data
+        }
+        # emp 是字典推导式中的临时变量，不需要在上下文中单独定义。
+        # 它的值来自 for emp in employee_data，每次迭代时会被动态赋值为 employee_data 的当前元素。
+        # 列表推导式的基本语法：[expression for item in iterable if condition]
+        # 它的作用域仅限于字典推导式或循环语句中，执行完成后就会释放,
+        return employee_info
+
+    except mysql.connector.Error as err:
+        print(f"数据库连接错误: {err}")
+        return {}
+
+
+def set_column_widths(ws):  # 设置列宽
+    # 设置第1列(A), 第2列(B), 第3列(C)的列宽
+    ws.column_dimensions["A"].width = 3  # 第1列(A)宽度为3
+    ws.column_dimensions["B"].width = 7  # 第2列(B)宽度为7
+    ws.column_dimensions["C"].width = 13  # 第3列(C)宽度为13
+
+    # 设置第4列到第34列(D到AH)的列宽为3.6
+    for col in range(4, 35):
+        col_letter = get_column_letter(col)  # 自动处理列号到字母的转换
+        ws.column_dimensions[col_letter].width = 3.6
+
+    # 设置第35列到第38列(AI到AL)的列宽为6.8
+    for col in range(35, 39):
+        col_letter = get_column_letter(col)  # 自动处理列号到字母的转换
+        ws.column_dimensions[col_letter].width = 6.8
+
+    # 设置第39列(AM)的列宽为10.5
+    ws.column_dimensions["AM"].width = 10.5
+
+    # 设置第40列(AN)的列宽为22.5
+    ws.column_dimensions["AN"].width = 22.5
 
 
 def create_attendance_template(filename: str, days_in_month: int = 31):
@@ -396,119 +409,222 @@ def create_attendance_template(filename: str, days_in_month: int = 31):
         days_in_month: 当前月份的天数"""
     wb = openpyxl.Workbook()  # 创建一个新的工作簿
     ws = wb.active  # 获取活动工作表
-    ws.title = "考勤表"  # 设置表格标题
+    ws.title = "考勤表"  # 设置工作表表格标题
 
-    ws.cell(row=1, column=1, value="工号")  # 填写标题行的第一列
-    for col in range(2, days_in_month + 2):
-        ws.cell(row=1, column=col, value=col - 1)  # 按日期填写列标题
-    for cell in ws[1]:
-        cell.alignment = Alignment(horizontal="center", vertical="center")  # 首行标题进行居中处理
+    # 合并第1行并填写标题
+    ws.merge_cells("A1:AN1")  # 合并第1行的 A:AN 单元格
+    header_cell1 = ws.cell(row=1, column=1, value="考勤表")  # 设置合并单元格的内容为 "考勤表"
+    header_cell1.font = Font(size=28, bold=True)  # 设置字体为 28 号
+    ws.row_dimensions[1].height = 40  # 设置行高为 40
+    header_cell1.alignment = Alignment(horizontal="center", vertical="center")
 
-    set_column_width(ws, width=3.6, exclude_first_column=True)  # 设置列宽
+    # 合并第2行填写项目名称:威尔斯
+    ws.merge_cells("A2:AK2")  # 合并第2行的 A:AK 单元格
+    header_cell2 = ws.cell(row=2, column=1, value="项目名称：威尔斯 ")  # 设置合并单元格的内容为 "项目名称：威尔斯 "
+    header_cell2.alignment = Alignment(horizontal="left", vertical="center")  # 设置居左对齐
+
+    # 合并第2行填写日期
+    ws.merge_cells("AL2:AN2")  # 合并第2行的 AL:AN 单元格
+    header_text = "2025年1月"  # 默认固定的年月
+    header_cell3 = ws.cell(row=2, column=38, value=header_text)  # 获取合并单元格的起始单元格并设置内容
+    header_cell3.alignment = Alignment(horizontal="center", vertical="center")  # 设置内容居中
+
+    # 第三行填写数据
+    headers = ['序\n号', '工号', '']
+    headers.extend([str(day) for day in range(1, days_in_month + 1)])  # 日期列
+    headers.extend(["出勤\n天数", "加班\n计时", "合计\n工数", "人工\n单价", "合计\n工资", "签名"])  # 新增列
+    for col, header in enumerate(headers, start=1):
+        # enumerate 是 Python 中的一个内置函数，用于将一个可迭代对象（如列表、元组等）转换为一个枚举对象，返回一个由索引和元素组成的元组。
+        # headers 是一个包含列标题的列表。
+        # enumerate(headers, start=1) 表示从 1 开始为 headers 列表中的每个元素提供一个索引。col 表示列索引，header 表示 headers 列表中的当前元素（即列标题）
+        cell = ws.cell(row=3, column=col, value=header)
+        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)  # 设置单元格内容居中及自动换行
+    ws.row_dimensions[3].height = 34  # 设置行高为 34
+
+    # 第三行填写数据
+    header_cell4 = ws.cell(row=3, column=3, value='       日期\n姓名')  # 获取合并单元格的起始单元格并设置内容
+    header_cell4.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)  # 设置内容居中及自动换行
+
+    # 调用设置列宽函数
+    set_column_widths(ws)
+
+
     wb.save(filename)  # 保存工作簿
     logging.info(f"考勤模板已生成: {filename}")  # 记录模板生成的信息
 
 
-def set_column_width(ws, width=3.6, exclude_first_column=False):
-    """设置列宽，并将内容居中
-    参数:
-        ws: 工作表对象
-        width: 列宽的数值
-        exclude_first_column: 是否排除第一列"""
-    for col_idx, col_cells in enumerate(ws.columns, start=1):
-        if exclude_first_column and col_idx == 1:
-            continue
-        col_letter = col_cells[0].column_letter  # 获取列字母
-        ws.column_dimensions[col_letter].width = width  # 设置列宽
-
-    for row in ws.iter_rows():
-        for cell in row:
-            cell.alignment = Alignment(horizontal="center", vertical="center")  # 居中对齐
-
-
-def fill_attendance(filename: str, employee_data: dict, days_in_month: int = 31):
-    """根据员工考勤数据填写表格，并增加出勤统计列
-    参数:
-        filename: 表格文件路径
-        employee_data: 包含员工编号及考勤数据的字典
-        days_in_month: 当前月份的天数"""
+def fill_attendance(filename: str, attendance_data: dict, employee_info: dict, emp_ids, days_in_month: int = 31):
+    """填充考勤信息到员工数据中"""
     if not os.path.exists(filename):
-        # 如果文件不存在，先创建考勤模板
         create_attendance_template(filename, days_in_month)
 
-    wb = openpyxl.load_workbook(filename)  # 打开现有的 Excel 工作簿
-    ws = wb.active  # 获取活动工作表
+    wb = openpyxl.load_workbook(filename)
+    ws = wb.active
 
-    extra_columns = [("出勤天数", 0), ("加班计时", 1), ("合计工数", 2)]
-    base_col = days_in_month + 2  # 额外列的起始列号
-    for title, offset in extra_columns:
-        col_idx = base_col + offset
-        ws.cell(row=1, column=col_idx, value=title)  # 增加新地统计列标题
+    start_row = 4
+    for emp_id, attendance in attendance_data.items():
+        logging.info(f"正在处理员工 {emp_id} 的考勤数据...")
+        # 写入序号并合并单元格
 
-    start_row = 2  # 设置起始行，从第二行开始填写数据
+        # 写入员工工号并合并单元格数据
+        ws.merge_cells(start_row=start_row, start_column=2, end_row=start_row + 2, end_column=2)
+        cell1 = ws.cell(row=start_row, column=2, value=emp_id)  # 写入编号到左上角单元格
+        cell1.alignment = Alignment(horizontal="center", vertical="center")  # 设置单元格内容居中
 
-    for emp_id, attendance_str in employee_data.items():
-        ws.cell(row=start_row, column=1, value=emp_id)  # 填写员工编号到第一列
-
-        ws.merge_cells(start_row=start_row, start_column=1, end_row=start_row + 2, end_column=1)
-        cell = ws.cell(row=start_row, column=1)
-        cell.alignment = Alignment(horizontal="center", vertical="center")  # 将编号单元格内容居中对齐
-
-        attendance = parse_attendance_input(attendance_str, days_in_month)  # 解析员工的考勤数据字符串
-
-        total_morning = 0
-        total_afternoon = 0
-        total_overtime = 0
+        # 填充每天的考勤数据
+        total_morning, total_afternoon, total_overtime = 0, 0, 0
         for col in range(2, days_in_month + 2):
-            day = col - 1  # 列号减去 1 对应日期
+            day = col - 1
             morning = attendance["morning"].get(day, "\u2717")
-            ws.cell(row=start_row, column=col, value=morning)  # 填写早班考勤
-            if morning == "\u2713":
-                total_morning += 0.5
-
             afternoon = attendance["afternoon"].get(day, "\u2717")
-            ws.cell(row=start_row + 1, column=col, value=afternoon)  # 填写晚班考勤
-            if afternoon == "\u2713":
-                total_afternoon += 0.5
-
             overtime = attendance["overtime"].get(day, "")
-            if overtime:
-                ws.cell(row=start_row + 2, column=col, value=overtime)  # 填写加班数据
-                total_overtime += float(overtime)
 
+            cell2 = ws.cell(row=start_row, column=col + 2, value=morning)
+            cell2.alignment = Alignment(horizontal="center", vertical="center")
+
+            cell3 = ws.cell(row=start_row + 1, column=col + 2, value=afternoon)
+            cell3.alignment = Alignment(horizontal="center", vertical="center")
+
+            if overtime:
+                cell4 = ws.cell(row=start_row + 2, column=col + 2, value=overtime)
+                cell4.alignment = Alignment(horizontal="center", vertical="center")
+
+            total_morning += 0.5 if morning == "\u2713" else 0
+            total_afternoon += 0.5 if afternoon == "\u2713" else 0
+            total_overtime += float(overtime or 0)
+
+        # 计算额外统计信息
         attendance_days = total_morning + total_afternoon
         overtime_days = total_overtime / 6
         total_days = attendance_days + overtime_days
 
-        ws.merge_cells(start_row=start_row, start_column=base_col, end_row=start_row + 1, end_column=base_col)
-        attendance_cell = ws.cell(row=start_row, column=base_col, value=attendance_days)
-        attendance_cell.alignment = Alignment(horizontal="center", vertical="center")  # 填写出勤天数（前两行合并，显示总出勤天数）
+        emp_info = employee_info.get(emp_id, {})
+        total_salary = total_days * emp_info.get('unit_price', 0)
 
-        overtime_days_cell = ws.cell(row=start_row + 2, column=base_col, value=overtime_days)
-        overtime_days_cell.alignment = Alignment(horizontal="center", vertical="center")  # 填写加班天数（出勤天数第3行显示加班时长换算的出勤天数）
-        ws.cell(row=start_row + 2, column=base_col, value=overtime_days).number_format = "0.0"
+        # 填充出勤天数,加班计时,合计工数,合计工资列的数据并设置格式
+        # 出勤天数
+        ws.merge_cells(start_row=start_row, start_column=days_in_month + 4, end_row=start_row + 1,
+                       end_column=days_in_month + 4)
+        cell5 = ws.cell(row=start_row, column=days_in_month + 4, value=attendance_days)
+        cell5.number_format = "0.00"  # 设置保留两位小数
+        cell5.alignment = Alignment(horizontal="center", vertical="center")
 
-        ws.merge_cells(start_row=start_row, start_column=base_col + 1, end_row=start_row + 2, end_column=base_col + 1)
-        overtime_cell = ws.cell(row=start_row, column=base_col + 1, value=total_overtime)
-        overtime_cell.alignment = Alignment(horizontal="center", vertical="center")  # 填写加班计时（所有加班小时数合并）
+        # 出勤天数下的加班换算天数
+        ws.merge_cells(start_row=start_row + 2, start_column=days_in_month + 4, end_row=start_row + 2,
+                       end_column=days_in_month + 4)
+        cell6 = ws.cell(row=start_row + 2, column=days_in_month + 4, value=overtime_days)
+        cell6.number_format = "0.00"  # 设置保留两位小数
+        cell6.alignment = Alignment(horizontal="center", vertical="center")
 
-        ws.merge_cells(start_row=start_row, start_column=base_col + 2, end_row=start_row + 2, end_column=base_col + 2)
-        total_cell = ws.cell(row=start_row, column=base_col + 2, value=total_days)
-        total_cell.alignment = Alignment(horizontal="center", vertical="center")  # 填写合计工数（出勤天数 + 加班天数，合并）
+        # 加班计时
+        ws.merge_cells(start_row=start_row, start_column=days_in_month + 5, end_row=start_row + 2,
+                       end_column=days_in_month + 5)
+        cell7 = ws.cell(row=start_row, column=days_in_month + 5, value=total_overtime)
+        cell7.number_format = "0.00"  # 设置保留两位小数
+        cell7.alignment = Alignment(horizontal="center", vertical="center")
 
-        start_row += 3  # 每个员工占用三行，因此起始行向下移动三行
+        # 合计工数
+        ws.merge_cells(start_row=start_row, start_column=days_in_month + 6, end_row=start_row + 2,
+                       end_column=days_in_month + 6)
+        cell8 = ws.cell(row=start_row, column=days_in_month + 6, value=total_days)
+        cell8.number_format = "0.00"  # 设置保留两位小数
+        cell8.alignment = Alignment(horizontal="center", vertical="center")
 
-    wb.save(filename)  # 保存更新后的工作簿
-    logging.info(f"考勤表已更新并保存为: {filename}")  # 记录考勤表更新的信息
+        # 合计工资
+        ws.merge_cells(start_row=start_row, start_column=days_in_month + 8, end_row=start_row + 2,
+                       end_column=days_in_month + 8)
+        cell9 = ws.cell(row=start_row, column=days_in_month + 8, value=total_salary)
+        cell9.number_format = "0.00"  # 设置保留两位小数
+        cell9.alignment = Alignment(horizontal="center", vertical="center")
+
+        # 签名
+        ws.merge_cells(start_row=start_row, start_column=days_in_month + 9, end_row=start_row + 2,
+                       end_column=days_in_month + 9)
+        cell10 = ws.cell(row=start_row, column=days_in_month + 9, value='')
+        cell10.alignment = Alignment(horizontal="center", vertical="center")
+
+        # 填充员工的基本信息（职位-姓名、人工单价）
+
+        if emp_info:
+            # 职位-姓名
+            ws.merge_cells(start_row=start_row, start_column=3, end_row=start_row + 2, end_column=3)
+            cell11 = ws.cell(row=start_row, column=3, value=emp_info.get('job_type', '') + emp_info.get('name', ''))
+            cell11.number_format = "0.00"  # 设置保留两位小数
+            cell11.alignment = Alignment(horizontal="center", vertical="center")
+
+            # 人工单价
+            ws.merge_cells(start_row=start_row, start_column=days_in_month + 7, end_row=start_row + 2,
+                           end_column=days_in_month + 4)
+            cell12 = ws.cell(row=start_row, column=days_in_month + 7, value=emp_info.get('unit_price', 0))
+            cell12.number_format = "0.00"  # 设置保留两位小数
+            cell12.alignment = Alignment(horizontal="center", vertical="center")
+
+        start_row += 3  # 下一位员工的行
+
+    wb.save(filename)
+    logging.info(f"考勤表已更新并保存为: {filename}")
 
 
+def get_days_in_month(year, month):
+    """获取指定年份和月份的天数"""
+    return calendar.monthrange(year, month)[1]
+
+
+def load_and_validate_employees(file_path):
+    """加载并验证员工数据"""
+    employees = load_employees_from_txt(file_path)
+    if not employees:
+        print(f"员工数据加载失败，请检查文件：{file_path}")
+        exit(1)
+    return employees
+
+
+def load_and_validate_db_config(file_path):
+    """加载并验证数据库配置"""
+    db_config = load_db_config(file_path)
+    if not db_config:
+        print(f"数据库配置加载失败，请检查文件：{file_path}")
+        exit(1)
+    return db_config
+
+
+def parse_all_attendance(employees, days_in_month):
+    """解析所有员工的考勤数据"""
+    attendance_data = {}
+    for emp_id, input_str in employees.items():
+        emp_attendance = parse_attendance_input(input_str, [emp_id], days_in_month)
+        attendance_data[emp_id] = emp_attendance[emp_id]
+    return attendance_data
+
+
+def main():
+    # 动态获取年份和月份
+    year, month = 2024, 12
+    days_in_month = get_days_in_month(year, month)
+
+    # 文件路径
+    base_dir = os.path.dirname(__file__)
+    employee_file = os.path.join(base_dir, "employees.txt")
+    db_config_file = os.path.join(base_dir, "db_config.json")
+    output_file = os.path.join(base_dir, "考勤表.xlsx")
+
+    # 加载员工数据和数据库配置
+    employees = load_and_validate_employees(employee_file)
+
+    db_config = load_and_validate_db_config(db_config_file)
+
+    # 获取员工信息
+    emp_ids = list(employees.keys())
+
+    employee_info = get_employee_info_from_mysql(db_config, emp_ids)
+    if not employee_info:
+        print("无法获取员工信息")
+        exit(1)
+
+    # 解析考勤数据
+    attendance_data = parse_all_attendance(employees, days_in_month)
+
+    # 填充考勤表
+    fill_attendance(output_file, attendance_data, employee_info, emp_ids, days_in_month)
 if __name__ == "__main__":
-    year, month = 2024, 12  # 动态获取年份和月份对应的天数
-    days_in_month = calendar.monthrange(year, month)[1]  # 获取月份的天数
-
-    employee_file = os.path.join(os.path.dirname(__file__), "employees.txt")  # 加载员工数据文件
-    employees = load_employees_from_txt(employee_file)  # 从文件中加载员工考勤数据
-
-    output_file = os.path.join(os.path.dirname(__file__), "../考勤表.xlsx")  # 输出文件名
-
-    fill_attendance(output_file, employees, days_in_month)  # 填充考勤数据
+    main()
