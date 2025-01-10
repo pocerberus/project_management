@@ -1,12 +1,13 @@
 import openpyxl  # 导入 openpyxl 模块，用于处理 Excel 文件
 import os  # 导入 os 模块，用于操作文件和目录
-from openpyxl.styles import Alignment, Font  # 从 openpyxl.styles 导入 Alignment,Font 类，用于设置单元格对齐方式及字体
 import calendar  # 导入 calendar 模块，用于处理日期和时间
 import logging  # 导入 logging 模块，用于记录日志信息
 import json
-from openpyxl.utils import get_column_letter
 import mysql.connector
+from openpyxl.styles import Alignment, Font  # 从 openpyxl.styles 导入 Alignment,Font 类，用于设置单元格对齐方式及字体
+from openpyxl.utils import get_column_letter
 from openpyxl.styles import Border, Side
+from openpyxl.worksheet.page import PageMargins
 
 # 配置日志记录，设置日志级别为 INFO，格式为时间 - 日志级别 - 消息内容
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -458,6 +459,7 @@ def create_attendance_template(attendance_data, filename: str, days_in_month: in
     # 调用设置列宽函数
     set_column_widths(ws)
 
+    # 设置表格边框线
     # 创建边框样式（四个方向的线）
     thin_border = Border(
         left=Side(border_style="thin", color="000000"),
@@ -465,18 +467,38 @@ def create_attendance_template(attendance_data, filename: str, days_in_month: in
         top=Side(border_style="thin", color="000000"),
         bottom=Side(border_style="thin", color="000000")
     )
-
     # 设置要添加边框的单元格范围
     start_row = 1
     end_row = len(attendance_data) * 3 + 3
     start_column = 1
     end_column = days_in_month + 9
-
     # 给指定区域的所有单元格添加边框
     for row in ws.iter_rows(min_row=start_row, max_row=end_row, min_col=start_column, max_col=end_column):
         for cell in row:
             cell.border = thin_border
 
+    # 设置页边距
+    ws.page_margins = PageMargins(
+        left=0.5,  # 左边距（英寸）
+        right=0.5,  # 右边距（英寸）
+        top=0.5,  # 上边距（英寸）
+        bottom=0.5,  # 下边距（英寸）
+        header=0.3,  # 页眉到页面顶部的距离（英寸）
+        footer=0.3  # 页脚到页面底部的距离（英寸）
+    )
+
+    # 设置页眉和页脚
+    ws.oddHeader.left.text = ""
+    ws.oddHeader.center.text = ""
+    ws.oddHeader.right.text = ""
+
+    ws.oddFooter.left.text = "备注：出勤：✔ 旷工：✘"
+    ws.oddFooter.center.text = "考勤员：        项目经理：   "
+    ws.oddFooter.right.text = "第&P页，共&N页"
+
+    # 设置打印方向为横向或纵向
+    ws.page_setup.orientation = ws.ORIENTATION_LANDSCAPE  # 横向
+    # ws.page_setup.orientation = ws.ORIENTATION_PORTRAIT  # 纵向
 
     wb.save(filename)  # 保存工作簿
     logging.info(f"考勤模板已生成: {filename}")  # 记录模板生成的信息
