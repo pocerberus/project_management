@@ -9,6 +9,7 @@ from openpyxl.utils import get_column_letter
 from openpyxl.styles import Border, Side
 from openpyxl.worksheet.page import PageMargins
 
+
 # 配置日志记录，设置日志级别为 INFO，格式为时间 - 日志级别 - 消息内容
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -416,6 +417,7 @@ def create_attendance_template(attendance_data, filename: str, days_in_month: in
     参数:
         filename: 模板保存的文件路径
         days_in_month: 当前月份的天数
+        :param days_in_month:
         :param attendance_data: 解析txt而来的字典,用于设置模板框线
         :type filename: object"""
     wb = openpyxl.Workbook()  # 创建一个新的工作簿
@@ -459,7 +461,6 @@ def create_attendance_template(attendance_data, filename: str, days_in_month: in
     # 调用设置列宽函数
     set_column_widths(ws)
 
-    # 设置表格边框线
     # 创建边框样式（四个方向的线）
     thin_border = Border(
         left=Side(border_style="thin", color="000000"),
@@ -504,7 +505,7 @@ def create_attendance_template(attendance_data, filename: str, days_in_month: in
     logging.info(f"考勤模板已生成: {filename}")  # 记录模板生成的信息
 
 
-def fill_attendance(filename: str, attendance_data: dict, employee_info: dict, emp_ids, days_in_month: int = 31):
+def fill_attendance(filename: str, attendance_data: dict, employee_info: dict, days_in_month: int = 31):
     """填充考勤信息到员工数据中"""
 
     logging.info(f"考勤数据: {attendance_data}")
@@ -521,7 +522,6 @@ def fill_attendance(filename: str, attendance_data: dict, employee_info: dict, e
 
     for emp_id, attendance in attendance_data.items():
         logging.info(f"正在处理员工 {emp_id} 的考勤数据...")
-        # 写入序号并合并单元格
 
         # 写入序号并设置单元格格式
         ws.merge_cells(start_row=start_row, start_column=1, end_row=start_row + 2, end_column=1)
@@ -530,7 +530,7 @@ def fill_attendance(filename: str, attendance_data: dict, employee_info: dict, e
         # 更新序号
         start_value += 1
 
-        # 写入员工工号并合        并单元格数据
+        # 写入员工工号并合并单元格数据
         ws.merge_cells(start_row=start_row, start_column=2, end_row=start_row + 2, end_column=2)
         cell1 = ws.cell(row=start_row, column=2, value=emp_id)  # 写入编号到左上角单元格
         cell1.alignment = Alignment(horizontal="center", vertical="center")  # 设置单元格内容居中
@@ -617,7 +617,7 @@ def fill_attendance(filename: str, attendance_data: dict, employee_info: dict, e
                              value=emp_info.get('job_type', '') + '-' + emp_info.get('name', ''))
             logging.info(f"填充职位-姓名: {emp_info.get('job_type', '')} {emp_info.get('name', '')}")
             cell11.number_format = "0.00"  # 设置保留两位小数
-            cell11.alignment = Alignment(horizontal="center", vertical="center")
+            cell11.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
 
             # 人工单价
             ws.merge_cells(start_row=start_row, start_column=days_in_month + 7, end_row=start_row + 2,
@@ -692,6 +692,6 @@ def main():
     attendance_data = parse_all_attendance(employees, days_in_month)
 
     # 填充考勤表
-    fill_attendance(output_file, attendance_data, employee_info, emp_ids, days_in_month)
+    fill_attendance(output_file, attendance_data, employee_info, days_in_month)
 if __name__ == "__main__":
     main()
