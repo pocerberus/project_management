@@ -1,7 +1,5 @@
-# noinspection DuplicateCode
-
-
 import csv
+from decimal import Decimal, InvalidOperation
 import openpyxl  # 导入 openpyxl 模块，用于处理 Excel 文件
 import os  # 导入 os 模块，用于操作文件和目录
 import calendar  # 导入 calendar 模块，用于处理日期和时间
@@ -11,8 +9,7 @@ from openpyxl.styles import Alignment, Border, Side, Font
 from openpyxl.worksheet.page import PageMargins
 from datetime import datetime  # 动态获取时间
 from openpyxl.utils import get_column_letter
-
-
+from collections import defaultdict
 
 
 # 配置日志记录，设置日志级别为 INFO，格式为时间 - 日志级别 - 消息内容
@@ -27,27 +24,24 @@ def sort_txt_by_number(input_file, attendance_file):
             return
 
         with open(input_file, 'r', encoding='utf-8') as file:
-            lines = [line.strip() for line in file if line.strip()]
-            '''
+            lines = [line.strip() for line in file if line.strip() and not line.startswith("#")]
             # for line in file
             # 遍历 file 文件对象的每一行，逐行读取内容。
             # file 是通过 open 打开的文件对象，支持迭代访问，每次返回一行字符串（包括换行符 \n）。
-
+            #
             # line.strip()
             # strip() 是字符串的一个方法，用于移除字符串开头和结尾的所有空白字符（如空格、制表符 \t 和换行符 \n）。
             # 如果一行内容为 " example text \n"，调用 strip() 后会得到 "example text"。
-
+            #
             # if line.strip()
             # 这是一个条件过滤器，表示只有在 line.strip() 的结果为真时（非空字符串），才会将该行加入列表。
             # 空行（如只有换行符或空格）经过 strip() 会变成空字符串 ""，在布尔上下文中为 False，因此会被过滤掉。
-
+            #
             # [... for ... if ...]
             # 这是一个列表生成式，用于构建一个列表。
             # 它会将符合条件的 line.strip() 的结果依次加入到列表中
-            '''
 
         sorted_lines = sorted(lines, key=lambda x: int(x.split(':')[0]))
-        '''
         # 1.sorted(lines)
         # sorted是Python的内置函数，用于对可迭代对象进行排序。
         # 它会返回一个新的排序后的列表，不会修改原始列表lines。
@@ -81,11 +75,9 @@ def sort_txt_by_number(input_file, attendance_file):
         #         没有名称：lambda 定义的函数是匿名的，常用在需要临时函数的场合。
         #         内联简洁：适合用在较简单的情况下，定义和使用往往写在同一行。
         #         自动返回：lambda 的表达式部分会自动作为返回值，无需使用 return。
-        '''
 
         with open(attendance_file, 'w', encoding='utf-8') as file:
             file.write('\n'.join(sorted_lines))
-        '''
         # 代码解析
         # 1.with open(attendance_file, 'w', encoding='utf-8') as file
         #     open(attendance_file, 'w', encoding='utf-8')
@@ -121,7 +113,7 @@ def sort_txt_by_number(input_file, attendance_file):
         # 覆盖风险：如果attendance_file已存在，其内容会被覆盖。如果需要追加内容，可以将'w'替换为'a'（追加模式）。
         # 编码问题：如果内容中包含特殊字符，确保文件编码和操作系统的默认编码兼容。UTF-8是推荐选择。
         # 数据格式一致性：确保sorted_lines的内容已经按照所需的格式排序并去除了无效数据（如空行）。
-        '''
+
         print(f"文件已成功排序并保存到 {attendance_file}")
     except Exception as e:
         print(f"发生错误：{e}")
@@ -180,101 +172,108 @@ def load_emp_attendance_from_txt(file_path):
     return employees  # 返回包含员工数据的字典 employees[emp_id] = attendance
 
 
-def parse_attendance_input(input_str: str, emp_ids: list, days_in_month):
-    """解析快速输入字符串，返回按员工编号组织的考勤数据字典
-    参数:
-        input_str: 表示考勤信息的字符串，例如 "1, 2.1, 3.2+2, 4-6"
-        emp_ids: 员工编号的列表，用于将考勤信息按员工编号组织
-        days_in_month: 当前月份的天数
-    返回:
-        一个按员工编号组织的嵌套字典, 格式如下：
-        {
-            emp_id: {
-                "morning": {1: "✓", 2: "✗", 3: "✓", ...},
-                "afternoon": {1: "✓", 2: "✓", 3: "✗", ...},
-                "overtime": {1: 2.5, 2: "", 3: 1.0, ...}
-            },
-            ...
-        }
-    """
+def parse_attendance_input(input_str: str, emp_ids: list, days_in_month: int):
+    # 解析快速输入字符串，返回按员工编号组织的考勤数据字典
 
-    # 创建一个空的字典，用于存储每个员工的考勤数据
-    attendance_data = {emp_id: {"morning": {}, "afternoon": {}, "overtime": {}} for emp_id in emp_ids}
+    # 初始化考勤数据
+    attendance_data = {
+        emp_id: {
+            "morning": defaultdict(lambda: "\u2717"),  # 默认早班 ✗
+            "afternoon": defaultdict(lambda: "\u2717"),  # 默认晚班 ✗
+            "overtime": defaultdict(float)  # 默认无加班
+        }
+        for emp_id in emp_ids
+    }
 
     def mark_attendance(emp_id, day: int, period: int = None, overtime: float = None):
-        """标记某个员工的考勤数据
-        参数:
-            emp_id: 员工编号
-            day: 天数，对应日期
-            period: 考勤时间段，1 表示早班，2 表示晚班，默认标记全天
-            overtime: 加班时长，默认为 None
-        """
-        if emp_id not in attendance_data or not (1 <= day <= days_in_month):
-            return  # 如果员工编号不在考勤数据中，则跳过
+        # 标记考勤数据
+        if not (1 <= day <= days_in_month):
+            return
+
         if period == 1:
-            attendance_data[emp_id]["morning"][day] = "\u2713"  # 早班出勤标记
+            attendance_data[emp_id]["morning"][day] = "\u2713"  # 早班 ✓
         elif period == 2:
-            attendance_data[emp_id]["afternoon"][day] = "\u2713"  # 晚班出勤标记
+            attendance_data[emp_id]["afternoon"][day] = "\u2713"  # 晚班 ✓
         else:
             attendance_data[emp_id]["morning"][day] = "\u2713"
-            attendance_data[emp_id]["afternoon"][day] = "\u2713"  # 全天出勤
+            attendance_data[emp_id]["afternoon"][day] = "\u2713"  # 全天 ✓
 
         if overtime is not None:
-            attendance_data[emp_id]["overtime"][day] = overtime  # 记录加班时间
+            attendance_data[emp_id]["overtime"][day] = int(overtime) if overtime.is_integer() else overtime  # 去掉小数点
 
-    # 解析输入字符串，并标记考勤
+    # 解析考勤输入
     for part in input_str.split(","):
-        part = part.strip()  # 去除每部分的首尾空格
+        part = part.strip()
         if not part:
-            continue  # 跳过空部分
-        try:
-            if "+" in part and "." in part:
-                # "日.时段+加班"格式
-                date_period, overtime = part.split("+")
-                day, period = map(int, date_period.split("."))
-                overtime = float(overtime)
-                for emp_id in emp_ids:
-                    mark_attendance(emp_id, day, period, overtime)
-            elif "-" in part:
-                # "起始日-结束日"格式
-                start, end = map(int, part.split("-"))
-                for day in range(start, end + 1):
-                    for emp_id in emp_ids:
-                        mark_attendance(emp_id, day)
-            elif "." in part:
-                # "日.时段"格式
-                day, period = map(int, part.split("."))
-                for emp_id in emp_ids:
-                    mark_attendance(emp_id, day, period)
-            elif "+" in part:
-                # "日+加班"格式
-                day, overtime = part.split("+")
-                overtime = float(overtime)
-                for emp_id in emp_ids:
-                    mark_attendance(emp_id, int(day), None, overtime)
-            else:
-                # 单独日期
-                for emp_id in emp_ids:
-                    mark_attendance(emp_id, int(part))
-        except ValueError:
-            logging.warning(
-                f"无效的格式: {part}。预期格式包括 'day', 'day.period', 'day+overtime', 'start-end' 等。")
             continue
 
-    # 填充默认值，将未标记的日期标记为未出勤
-    for emp_id in emp_ids:
-        for day in range(1, days_in_month + 1):
-            attendance_data[emp_id]["morning"].setdefault(day, "\u2717")
-            attendance_data[emp_id]["afternoon"].setdefault(day, "\u2717")
-            attendance_data[emp_id]["overtime"].setdefault(day, "")
+        try:
+            overtime = None
+            # **1. 解析 "(x.y-a.y)+overtime" 形式**
+            if part.startswith("(") and ")+" in part:
+                main_part, overtime_str = part.rstrip(")").split(")+", 1)
+                main_part = main_part.lstrip("(")  # 去掉左括号
+                try:
+                    overtime = float(overtime_str)
+                except ValueError:
+                    logging.warning(f"无效加班时间格式: {overtime_str}")
+                    overtime = None
+            # **2. 解析 "x+overtime" 形式**
+            elif "+" in part:
+                main_part, overtime_str = part.split("+", 1)
+                try:
+                    overtime = float(overtime_str)
+                except ValueError:
+                    logging.warning(f"无效加班时间格式: {overtime_str}")
+                    overtime = None
+            else:
+                main_part = part
 
-    return attendance_data  # 返回按员工编号组织的考勤数据字典
+            # 处理 (x.y - a.y) 结构
+            if "-" in main_part and "." in main_part:
+                start, end = main_part.split("-")
+                start_day, start_period = map(int, start.split("."))
+                end_day, end_period = map(int, end.split("."))
+
+                if start_period != end_period:
+                    logging.warning(f"起始和结束时段不匹配: {part}")
+                    continue
+
+                for day in range(start_day, end_day + 1):
+                    for emp_id in emp_ids:
+                        mark_attendance(emp_id, day, start_period, overtime)
+
+            # 处理单个日期时段，如 "3.1"
+            elif "." in main_part:
+                day, period = map(int, main_part.split("."))
+                for emp_id in emp_ids:
+                    mark_attendance(emp_id, day, period, overtime)
+
+            # 处理日期范围，如 "5-7"
+            elif "-" in main_part:
+                start, end = map(int, main_part.split("-"))
+                for day in range(start, end + 1):
+                    for emp_id in emp_ids:
+                        mark_attendance(emp_id, day, None, overtime)
+
+            # **新增：处理单个日期，如 "9+2"**
+            elif main_part.isdigit():
+                day = int(main_part)
+                for emp_id in emp_ids:
+                    mark_attendance(emp_id, day, None, overtime)
+
+            else:
+                logging.warning(f"无效格式: {part}")
+
+        except ValueError:
+            logging.warning(f"无效格式: {part}")
+
+    return attendance_data
 
 
-# 解析配置文件
 def parse_csv_config(file_path, default_value=None):
     """
-    将只有两列的 CSV 文件解析为字典，允许第二列为空
+    将只有两列的 CSV 文件解析为字典，允许第二列为空，并支持去除 BOM
     :param file_path: CSV 文件路径
     :param default_value: 第二列为空时的默认值（默认 None）
     :return: 字典，第一列为键，第二列为值（允许为空）
@@ -287,23 +286,35 @@ def parse_csv_config(file_path, default_value=None):
         return config_data
 
     # 支持多种文件编码
-    encodings = ['utf-8-sig', 'gb2312', 'utf-8']
+    encodings = ["utf-8", "utf-8-sig", "windows-1254", "windows-1252", "GB18030"]
     for encoding in encodings:
         try:
-            with open(file_path, mode='r', encoding=encoding) as csvfile:
+            with open(file_path, mode="r", encoding=encoding, newline="") as csvfile:
                 reader = csv.reader(csvfile)
+
+                first_row = next(reader, None)  # 读取首行，避免空文件错误
+                if first_row:
+                    first_row[0] = first_row[0].lstrip("\ufeff")  # 去除 BOM
+
+                    # 处理首行数据
+                    key = first_row[0].strip()
+                    value = first_row[1].strip() if len(first_row) > 1 and first_row[1].strip() else default_value
+                    config_data[key] = value
+
                 for row in reader:
                     if not row:  # 跳过空行
                         continue
                     key = row[0].strip()
                     value = row[1].strip() if len(row) > 1 and row[1].strip() else default_value
                     config_data[key] = value
-            break  # 如果成功解析，不再尝试其他编码
-        except UnicodeDecodeError:
+
+            break  # 成功解析，跳出循环
+        except (UnicodeDecodeError, IndexError) as e:
+            logging.warning(f"使用编码 {encoding} 读取失败: {e}")
             continue
     else:
         logging.error(f"无法解析文件 {file_path}，尝试的编码均失败")
-        return config_data
+
     return config_data
 
 
@@ -319,88 +330,99 @@ def get_days_in_month(config_data):
     return year, month, days_in_month
 
 
-def get_employee_info_from_mysql(config_data, emp_ids, csv_filename="emp_info.csv"):
-    """
-    根据员工工号列表从 MySQL 获取员工信息，若失败或空值时从 CSV 文件获取数据。
-    """
-    if not config_data:
-        print("数据库配置无效，无法连接数据库。")
-        return {}
+def safe_decimal(value, default=Decimal("0")):
+    """ 安全转换为 Decimal，避免解析错误 """
+    try:
+        return Decimal(str(value).strip()) if value else default
+    except (InvalidOperation, ValueError):
+        return default
+
+
+def get_employee_info(config_data, emp_ids, csv_filename="emp_info.csv"):
+    """ 根据员工工号列表获取员工信息，优先从 MySQL 读取，失败时从 CSV 读取 """
 
     if not emp_ids:
-        print("员工ID列表为空，无法执行查询。")
+        logging.warning("员工ID列表为空，无法执行查询。")
         return {}
 
     employee_info = {}
-    conn = None  # 初始化连接对象
 
+    # **尝试从 MySQL 读取数据**
+    conn = None
     try:
-        # 连接数据库
-        conn = mysql.connector.connect(
-            host=config_data['host'],
-            user=config_data['user'],
-            password=config_data['password'],
-            database=config_data['database']
-        )
+        if config_data:  # 仅在 config_data 存在时尝试连接数据库
+            conn = mysql.connector.connect(
+                host=config_data['host'],
+                user=config_data['user'],
+                password=config_data.get('password', ""),  # 确保密码为空时不报错
+                database=config_data['database']
+            )
 
-        with conn.cursor(dictionary=True) as cursor:
-            # 构建参数化查询
-            placeholders = ", ".join(["%s"] * len(emp_ids))
-            query = f"SELECT emp_id, job_type, name, unit_price FROM employees WHERE emp_id IN ({placeholders})"
-            cursor.execute(query, emp_ids)
-            employee_data = cursor.fetchall()
+            with conn.cursor(dictionary=True) as cursor:
+                # 构建参数化查询
+                placeholders = ", ".join(["%s"] * len(emp_ids))
+                query = f"SELECT emp_id, job_type, name, unit_price FROM employees WHERE emp_id IN ({placeholders})"
+                cursor.execute(query, emp_ids)
+                employee_data = cursor.fetchall()
 
-            if not employee_data:
-                raise ValueError("从数据库获取的数据为空。")
+                if employee_data:
+                    employee_info = {
+                        str(emp['emp_id']): {
+                            'job_type': emp['job_type'],
+                            'name': emp['name'],
+                            'unit_price': safe_decimal(emp['unit_price'])  # 统一转为 Decimal
+                        }
+                        for emp in employee_data
+                    }
+                    logging.info(f"从数据库获取的员工信息: {len(employee_info)} 条")
+                else:
+                    logging.warning("从数据库获取的数据为空，将尝试从 CSV 读取。")
 
-            # 转换为字典
-            employee_info = {
-                emp['emp_id']: {
-                    'job_type': emp['job_type'],
-                    'name': emp['name'],
-                    'unit_price': emp['unit_price']
-                }
-                for emp in employee_data
-            }
-            logging.info(f"从数据库获取的员工信息: {employee_info}")
-
-    except Exception as e:
-        print(f"从数据库获取数据失败: {e}")
-        if os.path.exists(csv_filename):
-            print(f"尝试从文件 {csv_filename} 加载数据...")
-            try:
-                with open(csv_filename, mode="r", encoding="utf-8") as file:
-                    csv_reader = csv.DictReader(file)
-                    required_columns = {"emp_id", "job_type", "name", "unit_price"}
-                    if not required_columns.issubset(csv_reader.fieldnames):
-                        raise ValueError(f"CSV 文件缺少必要列: {required_columns - set(csv_reader.fieldnames)}")
-
-                    for row in csv_reader:
-                        emp_id = row.get("emp_id")
-                        if emp_id and emp_id in emp_ids:
-                            try:
-                                unit_price = float(row.get("unit_price", 0))
-                            except ValueError:
-                                unit_price = 0
-
-                            employee_info[emp_id] = {
-                                "job_type": row.get("job_type", ""),
-                                "name": row.get("name", ""),
-                                "unit_price": unit_price
-                            }
-                    logging.info(f"从文件 {csv_filename} 加载的员工信息: {employee_info}")
-            except Exception as csv_error:
-                print(f"读取 CSV 文件失败: {csv_error}")
-        else:
-            print(f"CSV 文件 {csv_filename} 不存在！")
-
+    except mysql.connector.Error as db_error:
+        logging.error(f"从数据库获取数据失败: {db_error}")
     finally:
         if conn:
             conn.close()
             logging.info("数据库连接已关闭。")
 
-    return employee_info
+    # **如果数据库获取失败，则从 CSV 读取**
+    if not employee_info and os.path.exists(csv_filename):
+        logging.info(f"尝试从文件 {csv_filename} 加载数据...")
+        try:
+            # **支持多种编码格式**
+            encodings = ["utf-8", "utf-8-sig", "windows-1254", "windows-1252", "GB18030"]
+            for encoding in encodings:
+                try:
+                    with open(csv_filename, mode="r", encoding=encoding) as file:
+                        csv_reader = csv.DictReader(file)
 
+                        # **去除 UTF-8 BOM 并清理列名**
+                        csv_reader.fieldnames = [name.lstrip("\ufeff").strip() for name in csv_reader.fieldnames]
+
+                        required_columns = {"emp_id", "job_type", "name", "unit_price"}
+                        if not required_columns.issubset(csv_reader.fieldnames):
+                            raise ValueError(f"CSV 文件缺少必要列: {required_columns - set(csv_reader.fieldnames)}")
+
+                        for row in csv_reader:
+                            emp_id = str(row.get("emp_id")).strip()
+                            if emp_id and emp_id in map(str, emp_ids):
+                                employee_info[emp_id] = {
+                                    "job_type": row.get("job_type", ""),
+                                    "name": row.get("name", ""),
+                                    "unit_price": safe_decimal(row.get("unit_price"))
+                                }
+
+                        logging.info(f"从 CSV ({encoding}) 读取到 {len(employee_info)} 条员工数据")
+                        break  # 读取成功，退出编码尝试
+                except (UnicodeDecodeError, ValueError) as e:
+                    logging.warning(f"使用编码 {encoding} 读取 CSV 失败: {e}")
+        except Exception as csv_error:
+            logging.error(f"读取 CSV 文件失败: {csv_error}")
+
+    elif not os.path.exists(csv_filename):
+        logging.warning(f"CSV 文件 {csv_filename} 不存在！")
+    print(employee_info)
+    return employee_info
 
 def set_column_widths(ws, days_in_month):  # 设置列宽
     # 设置第1列(A), 第2列(B), 第3列(C)的列宽
@@ -428,13 +450,12 @@ def set_column_widths(ws, days_in_month):  # 设置列宽
 
 
 def create_attendance_template(attendance_data, config_data, days_in_month, filename: str):
-    """创建考勤模板
-    参数:
-        :param filename: 模板保存的文件路径
-        :param days_in_month: 动态月天数int
-        :param config_data: csv文件中解析而来的配置数据字典
-        :param attendance_data: 解析txt而来的字典,用于设置模板框线
-        """
+    # 创建考勤模板
+    # 参数:
+    #     :param filename: 模板保存的文件路径
+    #     :param days_in_month: 动态月天数int
+    #     :param config_data: csv文件中解析而来的配置数据字典
+    #     :param attendance_data: 解析txt而来的字典,用于设置模板框线
 
     # 创建一个新的工作簿
     wb = openpyxl.Workbook()
@@ -450,14 +471,13 @@ def create_attendance_template(attendance_data, config_data, days_in_month, file
     manager = config_data.get("manager", '')
 
     def get_merge_range(start_row, start_col, end_row, end_col):
-        """
-        生成合并单元格的范围字符串
-        :param start_row: 起始行号（整数）
-        :param start_col: 起始列号（整数）
-        :param end_row: 结束行号（整数）
-        :param end_col: 结束列号（整数）
-        :return: 合并范围字符串（如 A5:C5）
-        """
+        # 生成合并单元格的范围字符串
+        # :param start_row: 起始行号（整数）
+        # :param start_col: 起始列号（整数）
+        # :param end_row: 结束行号（整数）
+        # :param end_col: 结束列号（整数）
+        # :return: 合并范围字符串（如 A5:C5）
+
         start_cell = f"{get_column_letter(start_col)}{start_row}"
         end_cell = f"{get_column_letter(end_col)}{end_row}"
         return f"{start_cell}:{end_cell}"
@@ -565,7 +585,7 @@ def create_attendance_template(attendance_data, config_data, days_in_month, file
 
 
 def fill_attendance(filename: str, attendance_data: dict, employee_info: dict, config_data: dict, days_in_month):
-    """填充考勤信息到员工数据中"""
+    # 填充考勤信息到员工数据中
     # 删除文件如果存在
     if os.path.exists(filename):
         os.remove(filename)
@@ -622,7 +642,6 @@ def fill_attendance(filename: str, attendance_data: dict, employee_info: dict, c
         overtime_days = total_overtime / 6
         total_days = attendance_days + overtime_days
 
-        emp_id = int(emp_id)  # 将 emp_id 从字符串转换为整数
         emp_info = employee_info.get(emp_id, {})
         total_salary = total_days * float(emp_info.get('unit_price', 0) or 0)
         total_salary = round(total_salary, 2)  # 保留两位小数
@@ -693,7 +712,7 @@ def fill_attendance(filename: str, attendance_data: dict, employee_info: dict, c
 
 
 def parse_all_attendance(employees, days_in_month):  # 对parse_attendance_input函数的封装,如此调用简单,因为形参,不用考虑底层逻辑
-    """解析所有员工的考勤数据"""
+    # 解析所有员工的考勤数据
     attendance_data = {}
     for emp_id, input_str in employees.items():
         emp_attendance = parse_attendance_input(input_str, [emp_id], days_in_month)
@@ -724,12 +743,14 @@ def main():
 
     # 获取员工信息
     emp_ids = list(employees.keys())
-    employee_info = get_employee_info_from_mysql(config_data, emp_ids)
+    employee_info = get_employee_info(config_data, emp_ids)
 
     # 解析考勤数据
     attendance_data = parse_all_attendance(employees, days_in_month)
 
     # 填充考勤表
     fill_attendance(output_file, attendance_data, employee_info, config_data, days_in_month)
+
+
 if __name__ == "__main__":
     main()
